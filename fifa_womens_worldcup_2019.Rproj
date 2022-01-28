@@ -1,13 +1,87 @@
-Version: 1.0
+# Load the packages and read in the data.
+wwc_file<-read.csv("2019_WWCFIFA_summary.csv")
 
-RestoreWorkspace: Default
-SaveWorkspace: Default
-AlwaysSaveHistory: Default
+# Get the structure and summary of the dataset
+str(wwc_file)
+summary(wwc_file)
 
-EnableCodeIndexing: Yes
-UseSpacesForTab: Yes
-NumSpacesForTab: 2
-Encoding: UTF-8
+# Get the colnames and sample of the dataset
+colnames(wwc_file)
+head(wwc_file)
 
-RnwWeave: Sweave
-LaTeX: pdfLaTeX
+# Load the lubridate libraray for date coulmn conversion
+library("lubridate")
+wwc_file$Date<-as.Date(wwc_file$Date,format = "%m/%d/%y")
+head(wwc_file)
+
+# find the missing values in date and venue column
+index_date  <- which(is.na(wwc_2$date))
+wwc_2[index_date, ]
+ind_vn  <- which(is.na(wwc_2$venue))
+wwc_2[ind_vn, ]
+
+# Load the dplyr and tidyr library for data cleaning
+library(dplyr)
+library(tidyr)
+wwc_1  <- wwc_file %>% rename_all(tolower)  %>% drop_na(ï..round)
+wwc_2 <-  wwc_1 %>% mutate(date = replace_na(date, "2019-06-09"),venue = replace_na(venue, "Groupama Stadium"))
+summary(wwc_2)
+
+# Separte data in columns and replace NA. Separate score into home_score and away_score. Separate pks into home_pks and away_pks. Replace the NA in home_pks and away_pks with 0
+
+wwc_3  <- wwc_2  %>% separate(score, c("home_score", "away_score"), sep =  "-", convert = TRUE)  %>% 
+separate(pks, c("home_pks", "away_pks"), sep = "-", convert = TRUE)  %>% 
+mutate(home_pks = replace_na(home_pks, 0),away_pks = replace_na(away_pks, 0))
+
+# View the data 
+
+View(wwc_3)
+
+# Create a boxplot to look for outliers.
+
+library(ggplot2)
+ggplot(wwc_3, aes(venue, attendance)) +
+  geom_boxplot() +
+  geom_jitter(color = "red", size = 0.5) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+
+# Group by venue and use n(), min(), and max() to summarize the number of games, minimum attendance and maximum attendance at each venue.
+
+attendance_outlier  <- wwc_3  %>% group_by(venue)  %>% summarize(nb_of_games = n(), min_attendance = min(attendance),max_attendance = max(attendance))
+
+# Correct the outlier like this:
+wwc_4  <- wwc_3  %>% 
+  mutate(attendance = replace(attendance, which(attendance == 579000), 57900))
+
+# Redo the boxplot. This time make it prettier.
+wwc_4  %>% 
+  ggplot(aes(x= forcats::fct_reorder(venue, attendance), y = attendance)) +
+  geom_boxplot() +
+  geom_jitter(color = "red", size = 0.5) +
+  coord_flip() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, , hjust = 1)) +
+  labs(title = "Distribution of attendance by stadium",
+       subtitle = "2019 FIFA Women's World Cup",
+       x = "Stadium", 
+       y = "Attendance")
+
+# Make a line plot of venue attendance over the duration of the tournament.
+
+wwc_4  %>% 
+  ggplot(aes(date, attendance, color = venue)) +
+  geom_line() +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 8)) +
+  guides(col = guide_legend(nrow = 3)) +
+  labs(title = "Stadium attendance during the tournament",
+       subtitle = "2019 FIFA Women's World Cup",
+       x = "Date", 
+       y = "Attendance",
+       color = "") 
+
+# Which match had the highest attendance during the tournament?
+
+wwc_4 %>% arrange(desc(attendance))
+View(wwc_4)
